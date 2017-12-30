@@ -13,11 +13,11 @@ def main():
     #Might need to use this?
     #Sets connection as blocking - TCP
     print("Setting blocking")
-    _server.sck.setblocking(1)
+    #_server.sck.setblocking(0)
     #Listens for connections
     _server.sck.listen(1)
     print("Starting the game")
-    _server.game_two_players()
+    _server.main_game()
 
 if __name__ == '__main__':
     main()
