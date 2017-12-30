@@ -36,6 +36,13 @@ class Server():
             # Receives and decodes the client's choice, which will then be used to set the difficulty
             difficulty = self.receive(con)
             difficulty = str(difficulty)
+            while difficulty != "hard" and difficulty != "easy":
+                # If the value is not valid, asks for another input from the client
+                message = "redodiff"
+                self.send(message, client_add, con)
+                # Receives the new value
+                difficulty = self.receive(con)
+                difficulty = str(difficulty.lower())
             print("Server first!")
         #If the number returned is one, the client goes first
         elif turn == 1:
@@ -47,6 +54,13 @@ class Server():
             #Receives and decodes the client's choice, which will then be used to set the difficulty
             difficulty = self.receive(con)
             difficulty = str(difficulty)
+            while difficulty != "hard" and difficulty != "easy":
+                # If the value is not valid, asks for another input from the client
+                message = "redodiff"
+                self.send(message, client_add, con)
+                # Receives the new value
+                difficulty = self.receive(con)
+                difficulty = str(difficulty.lower())
             print("Client first!")
 
         if difficulty == "hard":
@@ -201,54 +215,64 @@ class Server():
                 self.game_over(con, client_add)
 
     def main_game(self):
-        """Main logic for the two player version of the game, takes the socket as a parameter to allow for message sending and receiving"""
+        """Main logic for the game, takes the socket as a parameter to allow for message sending and receiving"""
         # Game loop
         while True:
             #Waits for a client to connect before accepting a connection
             print(sys.stderr, "waiting for a connection")
             con, client_add = self.sck.accept()
             print("connection from", client_add)
-            #Initialises the game once the client connects
-            first_turn = self.game_init(con, client_add)
-            if first_turn:
-                #Server has first turn
-                print(">server first turn")
-                #Runs the AI logic since it is the server's turn
-                message = self.ai_logic()
-                #... and then runs the logic method using the AI's value
-                # This is always optimal since the server is having the first turn
-                self.logic(message)
-                message = "%d marbles remaining" % self.remain
-                # Fixes when server is first, since client never knew when it was its turn
-                self.send(message, client_add, con)
-                #con.sendall(message.encode())
-                print("%d marbles remaining..." % self.remain)
+            self.clients.append(client_add)
+            client_len = len(self.clients)
+            #Checks if there is only one player connected
+            if client_len == 1:
+                sp_check = True
+            #If there is only one player, the game runs
+            if sp_check:
+                #Initialises the game once the client connects
+                first_turn = self.game_init(con, client_add)
+                if first_turn:
+                    #Server has first turn
+                    print(">server first turn")
+                    #Runs the AI logic since it is the server's turn
+                    message = self.ai_logic()
+                    #... and then runs the logic method using the AI's value
+                    # This is always optimal since the server is having the first turn
+                    self.logic(message)
+                    message = "%d marbles remaining" % self.remain
+                    # Fixes when server is first, since client never knew when it was its turn
+                    self.send(message, client_add, con)
+                    print("%d marbles remaining..." % self.remain)
 
-            elif not first_turn:
-                #Client has first turn
-                print(">client first turn...")
-                print("Waiting for 2 seconds to initialise client connection...")
-                #Having this delay ensures that the separate messages for the client's turn status
-                #and the no. of marbles remaining are kept apart to prevent the client stalling
-                time.sleep(2)
-                message = "Difficulty set. %d marbles remaining!" % self.remain
-                # Fixes when server is first, since client never knew when it was its turn
-                self.send(message, client_add, con)
-                print("%d marbles remaining..." % self.remain)
+                elif not first_turn:
+                    #Client has first turn
+                    print(">client first turn...")
+                    print("Waiting for 2 seconds to initialise client connection...")
+                    #Having this delay ensures that the separate messages for the client's turn status
+                    #and the no. of marbles remaining are kept apart to prevent the client stalling
+                    time.sleep(2)
+                    message = "Difficulty set. %d marbles remaining!" % self.remain
+                    # Fixes when server is first, since client never knew when it was its turn
+                    self.send(message, client_add, con)
+                    print("%d marbles remaining..." % self.remain)
 
-            try:
-                time.sleep(2)
-                #Inverts the current value of the first turn to get the initial value for the second turn
-                self.current_turn = ~first_turn
-                #Runs the turn_order method to calculate the main logic for the game
-                self.turn_order(con, client_add)
+                try:
+                    time.sleep(2)
+                    #Inverts the current value of the first turn to get the initial value for the second turn
+                    self.current_turn = ~first_turn
+                    #Runs the turn_order method to calculate the main logic for the game
+                    self.turn_order(con, client_add)
 
-            #Handles if there are any exceptions running the main method, printing the error as required
-            except Exception as e:
-                print("Exception thrown in two player connection: ", e)
-                time.sleep(1)
-                #Closes the connection to prevent occupying of a port
+                #Handles if there are any exceptions running the main method, printing the error as required
+                except Exception as e:
+                    print("Exception thrown in two player connection: ", e)
+                    time.sleep(1)
+                    #Closes the connection to prevent occupying of a port
+                    con.close()
+            else:
+                print("More than one player connected, closing game...")
                 con.close()
+                exit()
 
     def game_over(self, con, client_add):
         """Handles the game over state, checking if the client wants to play again or not"""

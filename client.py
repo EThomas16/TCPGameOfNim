@@ -85,7 +85,7 @@ class Client(Server):
                 #Uses the receiving method to acquire the current message from the server
                 data = self.receive()
                 #If the server tells the client to set the difficulty, the difficulty is set
-                if data == "difficulty":
+                if data == "difficulty" or data == "redodiff":
                     self.set_difficulty()
 
                 #Finds current turn
@@ -101,10 +101,10 @@ class Client(Server):
                 #If the server tells the client the game is over, the game over state is set
                 if "over" in data:
                     if data.find("player 2"):
-                        print("The winner is: you!")
+                        print("The winner is the AI!")
 
                     elif data.find("player 1"):
-                        print("The winner is: the server!")
+                        print("The winner is you!")
                     #Runs the logic to allow the user to restart the game or close the connection
                     self.game_over_logic()
 
