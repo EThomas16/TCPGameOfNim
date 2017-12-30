@@ -1,3 +1,5 @@
+"""One player version of Game of Nim with AI"""
+
 import socket
 import sys
 import time
@@ -16,13 +18,13 @@ class Client(Server):
         self.sck.sendto(message.encode(), self.server_add)
 
     def set_current_turn(self, data):
-        if data == "not":
+        if data == "not" or data[3:6] == "not":
             # If the server says it's not the client's turn, sets current turn as false
             print("Not")
             self.current_turn = False
 
 
-        elif data == "yes":
+        elif data == "yes" or data[3:6] == "yes":
             # If the server says it is the client's turn, sets current turn to true
             print("Yes")
             self.current_turn = True
@@ -86,6 +88,7 @@ class Client(Server):
                 if data == "not" or "yes":
                     # If the server says it's not the client's turn, sets current turn as false
                     self.set_current_turn(data)
+                    print(self.current_turn)
 
                 #Handles the game logic for if it is the client's turn
                 if self.current_turn or data == "redo":
@@ -95,8 +98,13 @@ class Client(Server):
 
                     self.current_turn_logic()
 
-                elif data[:4] == "over":
-                    print("The winner is: ", data[5:], "!")
+                elif "over" in data:
+                    if data.find("player 1"):
+                        print("The winner is: player 1!")
+
+                    elif data.find("player 2"):
+                        print("The winner is: player 2!")
+
                     self.game_over_logic()
 
                 else:

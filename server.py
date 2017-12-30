@@ -1,3 +1,5 @@
+"""One player version of Game of Nim with AI"""
+
 import socket
 import sys
 import math
@@ -11,6 +13,7 @@ class Server():
         self.server_add = ('localhost', 10000)
         #Counts the number of remaining marbles
         self.remain = 0
+        self.optimal = 0
         #Stores the currently connected clients
         self.clients = []
         self.buffer = 1024
@@ -25,8 +28,14 @@ class Server():
         if turn == 0:
             #Server first turn
             first_turn = True
-            difficulty = input("Please type which difficulty you want:\n>Hard\n>Easy\n")
-            difficulty = difficulty.lower()
+            # Sends a message to the client, letting it know it can set the difficulty
+            message = "difficulty"
+            self.send(message, client_add, con)
+            # con.sendall(message.encode())
+            # Receives and decodes the client's choice, which will then be used to set the difficulty
+            difficulty = self.receive(con)
+            #difficulty = con.recv(self.buffer)
+            difficulty = str(difficulty)
             print("Server first!")
         #If the number returned is one, the client goes first
         elif turn == 1:
@@ -37,8 +46,8 @@ class Server():
             self.send(message, client_add, con)
             #con.sendall(message.encode())
             #Receives and decodes the client's choice, which will then be used to set the difficulty
-            difficulty = con.recv(self.buffer)
-            difficulty = str(difficulty.decode())
+            difficulty = self.receive(con)
+            difficulty = str(difficulty)
             print("Client first!")
 
         if difficulty == "hard":
@@ -57,7 +66,7 @@ class Server():
         """This handles the logic for the program, this can be expanded to include AI"""
         #Decrements the current remaining marbles by the given amount
         #print("Input: ", input, "\nRemaining: ", self.remain)
-        if input == "":
+        if input == "" or not str(input).isdigit():
             self.num_check = True
             print("Invalid type entered")
 
@@ -76,6 +85,42 @@ class Server():
             #print("Invalid value received, please enter a value less than half of the remaining marbles")
             self.num_check = True
 
+    def ai_logic(self):
+        """The logic for the AI of the game, calculates the best value to use to beat the user"""
+        val_check = [3, 7, 15, 31, 63]
+        for val in val_check:
+            if self.remain > val:
+                # Calculates using the power of two (minus one) rule
+                optimal = self.remain - val
+                if optimal <= int(self.remain / 2):
+                    # And sets the remaining to be that value
+                    #self.remain -= self.optimal
+                    # The AI states its move
+                    print("I make my move! I remove %d marbles" % optimal)
+                    return optimal
+
+                else:
+                    print("Optimal value too large, recalculating...")
+                    # Can change the way it handles this
+                    optimal = randint(1, int((self.remain / 2) - 1))
+                    # The AI states its move
+                    print("I make my move! I remove %d marbles" % optimal)
+                    return optimal
+
+                # After finding the first 'optimal' value to subtract from in the list, the loop breaks to end calculation
+                break
+
+            elif 0 < self.remain <= 3:
+                # Loses the game...
+                print("I have lost")
+                optimal = 1
+                return optimal
+
+            else:
+                # Just a catch all
+                print("Looking for optimal value...")
+                continue
+
     def send(self, message, client, con):
         """Used to send messages (legacy?)"""
         msg = str(message)
@@ -83,7 +128,9 @@ class Server():
 
     def receive(self, con):
         """Handles the receiving of data packets, checking the entire packet has been received"""
-        print("end")
+        data = con.recv(self.buffer)
+        data = data.decode()
+        return data
 
     def empty_check(self, val):
         try:
@@ -100,32 +147,34 @@ class Server():
                     # Client turn
                     # Sends this message as a confirmation to the client that it is its turn
                     message = "yes"
-                    con.sendall(message.encode())
+                    self.send(message, client_add, con)
                     print(">client current turn...")
                     #time.sleep(2)
                     #con.sendall(str(self.remain).encode())
                     # Receives any values the client entered and decodes it
-                    data = con.recv(self.buffer)
-                    data = data.decode()
+                    data = self.receive(con)
+                    #data = con.recv(self.buffer)
+                    #data = data.decode()
                     print("received '%s'" % data)
 
                     if data:
                         #print("sending data back to the client")
                         # Calculates the new remaining value
-                        self.logic(int(data))
+                        self.logic(data)
                         print(str(self.num_check))
                         self.current_turn = False
-                        if self.num_check:
+                        while self.num_check:
                             #If the value is not valid, asks for another input from the client
                             message = "redo"
                             self.send(message, client_add, con)
                             #con.sendall(message.encode())
-                            data = con.recv(self.buffer)
-                            data = data.decode()
-                            self.logic(int(data))
+                            data = self.receive(con)
+                            #data = con.recv(self.buffer)
+                            #data = data.decode()
+                            self.logic(data)
                             self.current_turn = False
 
-                        else:
+                        if not self.num_check:
                             self.current_turn = False
                             if self.remain > 0:
                                 message = "There are %d marbles left!" % self.remain
@@ -147,7 +196,8 @@ class Server():
                     self.send(message, client_add, con)
                     #con.sendall(message.encode())
                     #print("server's turn now")
-                    message = input("It's your turn! Please enter the number of marbles you wish to remove:\n")
+                    #message = input("It's your turn! Please enter the number of marbles you wish to remove:\n")
+                    message = self.ai_logic()
                     self.logic(message)
                     if self.num_check:
                         message = input("Please re-enter a valid value:\n")
@@ -180,7 +230,8 @@ class Server():
             if first_turn:
                 #Server has first turn
                 print(">server first turn")
-                message = input("It's your turn first! Please enter how many marbles you wish to remove:\n")
+                #message = input("It's your turn first! Please enter how many marbles you wish to remove:\n")
+                message = self.ai_logic()
                 self.logic(message)
 
                 if self.num_check:
@@ -211,6 +262,7 @@ class Server():
             try:
                 # print("connection from", client_add)
                 #Inverts the current value of the first turn to get the initial value for the second turn
+                time.sleep(2)
                 self.current_turn = ~first_turn
                 self.turn_order(con, client_add)
 
@@ -242,8 +294,9 @@ class Server():
         # game_over = str(game_over.lower())
         #Receives the user's choice of game over state
         #The data is decoded to convert to a true string type
-        data = con.recv(self.buffer)
-        data = str(data.lower().decode())
+        data = self.receive(con)
+        #data = con.recv(self.buffer)
+        #data = str(data.lower().decode())
 
         #time.sleep(2)
 
